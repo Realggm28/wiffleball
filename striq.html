@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>StrIQ — Wiffle Ball Umpire</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ─── RESET & BASE ─── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#04060e;color:#e8eaf0;font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased}
+
+/* ─── CSS VARS ─── */
+:root{
+  --bg:#04060e;
+  --surface:#0b1120;
+  --surface2:#121c30;
+  --border:rgba(255,255,255,.08);
+  --green:#00e676;
+  --green-dim:rgba(0,230,118,.12);
+  --red:#ff4545;
+  --red-dim:rgba(255,69,69,.12);
+  --blue:#3d8ef8;
+  --blue-dim:rgba(61,142,248,.12);
+  --yellow:#ffe234;
+  --yellow-dim:rgba(255,226,52,.12);
+  --text:#e8eaf0;
+  --muted:#64748b;
+  --font-display:'Oswald',sans-serif;
+  --font-mono:'IBM Plex Mono',monospace;
+}
+
+/* ─── SCREENS ─── */
+.screen{position:fixed;inset:0;display:flex;flex-direction:column}
+.screen.hidden{display:none!important}
+
+/* ─── SETUP SCREEN ─── */
+#setup-screen{
+  background:radial-gradient(ellipse 80% 60% at 50% 0%, #0e2040 0%, #04060e 70%);
+  align-items:center;justify-content:center;text-align:center;padding:2rem;gap:1.5rem
+}
+.logo{font-family:var(--font-display);font-size:3.5rem;font-weight:700;letter-spacing:.02em;line-height:1}
+.logo .str{color:#e8eaf0}
+.logo .iq{color:var(--yellow)}
+.logo .dot{color:var(--green);font-size:3rem}
+.tagline{color:var(--muted);font-size:.9rem;letter-spacing:.05em;text-transform:uppercase}
+.checklist{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.25rem 1.5rem;max-width:300px;text-align:left}
+.checklist-title{font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:.75rem}
+.check-item{display:flex;align-items:center;gap:.6rem;padding:.35rem 0;font-size:.88rem;color:#94a3b8}
+.check-icon{font-size:1rem;width:1.2rem;flex-shrink:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.85rem 2rem;border-radius:12px;border:none;font-size:.95rem;font-weight:600;cursor:pointer;transition:transform .15s,box-shadow .15s;font-family:'Inter',sans-serif}
+.btn:active{transform:scale(.95)}
+.btn-primary{background:var(--green);color:#000;box-shadow:0 0 30px rgba(0,230,118,.3)}
+.btn-primary:hover{box-shadow:0 0 40px rgba(0,230,118,.5)}
+.btn-ghost{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-danger{background:var(--red);color:#fff}
+.btn-blue{background:var(--blue);color:#fff}
+.note{font-size:.75rem;color:var(--muted)}
+
+/* ─── LOADING SCREEN ─── */
+#loading-screen{background:var(--bg);align-items:center;justify-content:center;gap:1.2rem;text-align:center}
+.spinner{width:48px;height:48px;border:3px solid rgba(0,230,118,.15);border-top-color:var(--green);border-radius:50%;animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-title{font-family:var(--font-display);font-size:1.3rem;font-weight:600;letter-spacing:.05em}
+#load-status{color:var(--muted);font-family:var(--font-mono);font-size:.8rem}
+
+/* ─── MAIN SCREEN ─── */
+#main-screen{background:#000}
+
+/* ─── SCOREBOARD ─── */
+#scoreboard{
+  background:rgba(4,6,14,.95);border-bottom:1px solid var(--border);
+  padding:.6rem 1rem;display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;z-index:10;backdrop-filter:blur(8px)
+}
+.sb-group{display:flex;flex-direction:column;align-items:center;gap:.2rem}
+.sb-label{font-family:var(--font-mono);font-size:.55rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+.sb-value{font-family:var(--font-display);font-size:1.6rem;font-weight:700;line-height:1}
+.count-row{display:flex;gap:.75rem;align-items:center}
+.count-col{display:flex;flex-direction:column;align-items:center;gap:.3rem}
+.dots{display:flex;gap:4px}
+.dot{width:10px;height:10px;border-radius:50%;border:1.5px solid rgba(255,255,255,.2);transition:all .25s}
+.dot.ball.on{background:var(--blue);border-color:var(--blue);box-shadow:0 0 6px var(--blue)}
+.dot.strike.on{background:var(--red);border-color:var(--red);box-shadow:0 0 6px var(--red)}
+.dot.out.on{background:var(--yellow);border-color:var(--yellow);box-shadow:0 0 6px var(--yellow)}
+.hand-badge{font-family:var(--font-mono);font-size:.65rem;padding:.2rem .6rem;border-radius:6px;background:var(--surface2);color:var(--muted);font-weight:600;border:1px solid var(--border)}
+.hand-badge.rh{background:rgba(61,142,248,.15);color:var(--blue);border-color:rgba(61,142,248,.3)}
+.hand-badge.lh{background:rgba(167,139,250,.15);color:#a78bfa;border-color:rgba(167,139,250,.3)}
+
+/* ─── CAMERA AREA ─── */
+#camera-wrap{position:relative;flex:1;overflow:hidden;background:#000}
+#video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0}
+#overlay-canvas{position:absolute;inset:0;width:100%;height:100%}
+
+/* ─── STATUS BADGE ─── */
+#status-badge{
+  position:absolute;top:.75rem;left:50%;transform:translateX(-50%);
+  background:rgba(4,6,14,.8);backdrop-filter:blur(10px);
+  border:1px solid var(--border);border-radius:999px;
+  padding:.3rem .85rem;font-size:.72rem;font-family:var(--font-mono);
+  color:var(--muted);white-space:nowrap;z-index:5;transition:all .3s;
+  pointer-events:none
+}
+
+/* ─── CALL BANNER ─── */
+#call-banner{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  pointer-events:none;z-index:20;opacity:0;transition:opacity .2s
+}
+#call-banner.show{opacity:1}
+#call-word{
+  font-family:var(--font-display);font-size:min(18vw,5rem);font-weight:700;
+  letter-spacing:.05em;text-align:center;line-height:1;
+  text-shadow:0 0 60px currentColor,0 4px 20px rgba(0,0,0,.6);
+  padding:.4rem 1.2rem;border-radius:12px;
+}
+#call-word.strike{color:var(--red);background:rgba(255,69,69,.1)}
+#call-word.ball{color:var(--blue);background:rgba(61,142,248,.1)}
+
+/* ─── REC INDICATOR ─── */
+#rec-dot{
+  position:absolute;top:.75rem;right:.75rem;
+  display:flex;align-items:center;gap:.4rem;
+  font-family:var(--font-mono);font-size:.65rem;color:var(--red);
+  z-index:5;opacity:0;transition:opacity .3s
+}
+#rec-dot.show{opacity:1}
+.rec-circle{width:7px;height:7px;border-radius:50%;background:var(--red);animation:pulse-rec 1.2s ease-in-out infinite}
+@keyframes pulse-rec{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ─── CONTROLS BAR ─── */
+#controls{
+  background:rgba(4,6,14,.97);border-top:1px solid var(--border);
+  padding:.6rem .75rem;display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;
+  flex-shrink:0;z-index:10
+}
+.ctrl-btn{
+  padding:.5rem .9rem;border-radius:9px;border:1px solid var(--border);
+  font-size:.75rem;font-weight:600;background:var(--surface);color:var(--text);
+  cursor:pointer;display:flex;align-items:center;gap:.3rem;
+  transition:transform .15s,background .15s;white-space:nowrap
+}
+.ctrl-btn:active{transform:scale(.93);background:var(--surface2)}
+.ctrl-btn.g{border-color:rgba(0,230,118,.25);color:var(--green)}
+.ctrl-btn.r{border-color:rgba(255,69,69,.25);color:var(--red)}
+.ctrl-btn.b{border-color:rgba(61,142,248,.25);color:var(--blue)}
+.ctrl-btn.y{border-color:rgba(255,226,52,.25);color:var(--yellow)}
+
+/* ─── SENSITIVITY SLIDER (hidden in live mode, shown in settings) ─── */
+#sensitivity-row{display:flex;align-items:center;gap:.75rem;padding:.5rem 1rem;background:var(--surface);border-radius:10px}
+input[type=range]{flex:1;accent-color:var(--yellow)}
+
+/* ─── REVIEW MODAL ─── */
+#review-modal{
+  position:fixed;inset:0;z-index:100;
+  background:rgba(4,6,14,.96);backdrop-filter:blur(16px);
+  flex-direction:column;padding:1.25rem;overflow-y:auto;gap:.85rem
+}
+#review-modal.hidden{display:none}
+#review-modal{display:flex}
+.review-hdr{text-align:center}
+.review-num{font-family:var(--font-mono);font-size:.75rem;color:var(--muted);margin-bottom:.25rem}
+.review-call-text{font-family:var(--font-display);font-size:3.5rem;font-weight:700;letter-spacing:.05em;line-height:1}
+.review-call-text.strike{color:var(--red);text-shadow:0 0 40px rgba(255,69,69,.4)}
+.review-call-text.ball{color:var(--blue);text-shadow:0 0 40px rgba(61,142,248,.4)}
+.frames-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.frame-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.frame-img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover;background:var(--surface2)}
+.frame-lbl{font-family:var(--font-mono);font-size:.65rem;text-align:center;padding:.4rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.review-meta{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.75rem;text-align:center;font-family:var(--font-mono);font-size:.78rem;color:var(--muted)}
+.review-btns{display:flex;gap:.65rem;flex-wrap:wrap;justify-content:center}
+
+/* ─── CALIBRATION MODAL ─── */
+#calib-modal{
+  position:fixed;inset:0;z-index:100;
+  background:rgba(4,6,14,.95);backdrop-filter:blur(16px);
+  align-items:center;justify-content:center;flex-direction:column;
+  padding:1.5rem;text-align:center;gap:1rem
+}
+#calib-modal.hidden{display:none}
+#calib-modal{display:flex}
+#calib-canvas{border-radius:12px;border:1px dashed var(--border);max-width:100%;max-height:50vh;touch-action:none}
+.calib-step{font-family:var(--font-mono);font-size:.8rem;color:var(--green)}
+.calib-btns{display:flex;gap:.75rem}
+
+/* ─── SESSION LOG ─── */
+#session-panel{
+  position:fixed;inset:0;z-index:90;background:var(--bg);
+  flex-direction:column;padding:1rem;overflow-y:auto;gap:.75rem
+}
+#session-panel.hidden{display:none}
+#session-panel{display:flex}
+.session-hdr{display:flex;justify-content:space-between;align-items:center}
+.session-hdr h2{font-family:var(--font-display);font-size:1.5rem;font-weight:600}
+.log-item{display:flex;align-items:center;gap:.75rem;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:.75rem;overflow:hidden}
+.log-badge{min-width:44px;height:44px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:.8rem;font-weight:700;flex-shrink:0}
+.log-badge.strike{background:var(--red-dim);color:var(--red)}
+.log-badge.ball{background:var(--blue-dim);color:var(--blue)}
+.log-thumb{width:72px;height:45px;object-fit:cover;border-radius:7px;background:var(--surface2);flex-shrink:0}
+.log-info{flex:1;min-width:0}
+.log-meta{font-family:var(--font-mono);font-size:.65rem;color:var(--muted)}
+.log-call{font-weight:700;font-size:.9rem}
+.log-call.strike{color:var(--red)}
+.log-call.ball{color:var(--blue)}
+.session-foot{display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap}
+
+/* ─── SETTINGS MODAL ─── */
+#settings-modal{
+  position:fixed;inset:0;z-index:100;background:rgba(4,6,14,.95);backdrop-filter:blur(16px);
+  align-items:center;justify-content:center;flex-direction:column;padding:1.5rem;gap:1rem
+}
+#settings-modal.hidden{display:none}
+#settings-modal{display:flex}
+.settings-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.25rem;width:100%;max-width:360px;display:flex;flex-direction:column;gap:1rem}
+.settings-row{display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.settings-label{font-size:.85rem;font-weight:500}
+.settings-sub{font-family:var(--font-mono);font-size:.7rem;color:var(--muted)}
+input[type=range]{width:120px;accent-color:var(--yellow)}
+.val-display{font-family:var(--font-mono);font-size:.8rem;color:var(--yellow);min-width:2.5rem;text-align:right}
+
+/* ─── ANIMATIONS ─── */
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn .3s ease forwards}
+
+</style>
+</head>
+<body>
+
+<!-- ═══ SETUP SCREEN ═══ -->
+<div class="screen" id="setup-screen">
+  <div class="logo"><span class="str">STR</span><span class="iq">IQ</span><span class="dot"> ⚾</span></div>
+  <div class="tagline">Wiffle Ball Smart Umpire</div>
+
+  <div class="checklist">
+    <div class="checklist-title">Before You Start</div>
+    <div class="check-item"><span class="check-icon">📱</span>Mount phone behind the batter/net</div>
+    <div class="check-item"><span class="check-icon">🎯</span>Aim camera toward pitcher's mound</div>
+    <div class="check-item"><span class="check-icon">🟡</span>Use a bright yellow tennis ball</div>
+    <div class="check-item"><span class="check-icon">☀️</span>Good lighting improves accuracy</div>
+    <div class="check-item"><span class="check-icon">🔒</span>Keep phone stationary once set</div>
+  </div>
+
+  <button class="btn btn-primary" onclick="startApp()">▶ &nbsp;Launch Camera</button>
+  <p class="note">Camera + microphone permissions required</p>
+</div>
+
+<!-- ═══ LOADING SCREEN ═══ -->
+<div class="screen hidden" id="loading-screen">
+  <div class="spinner"></div>
+  <div class="load-title">Initializing StrIQ</div>
+  <div id="load-status">Starting up...</div>
+</div>
+
+<!-- ═══ MAIN SCREEN ═══ -->
+<div class="screen hidden" id="main-screen">
+
+  <!-- Scoreboard -->
+  <div id="scoreboard">
+    <div class="sb-group">
+      <div class="sb-label">Pitch</div>
+      <div class="sb-value" id="sb-pitch" style="font-size:1.3rem;color:var(--yellow)">0</div>
+    </div>
+
+    <div class="count-row">
+      <div class="count-col">
+        <div class="sb-label">B</div>
+        <div class="dots" id="ball-dots"></div>
+      </div>
+      <div class="count-col" style="padding:0 .25rem">
+        <div id="hand-badge" class="hand-badge">?</div>
+      </div>
+      <div class="count-col">
+        <div class="sb-label">S</div>
+        <div class="dots" id="strike-dots"></div>
+      </div>
+    </div>
+
+    <div class="sb-group">
+      <div class="sb-label">Outs</div>
+      <div class="dots" id="out-dots"></div>
+    </div>
+  </div>
+
+  <!-- Camera & Overlay -->
+  <div id="camera-wrap">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="overlay-canvas"></canvas>
+    <div id="status-badge">Waiting for camera...</div>
+    <div id="rec-dot"><div class="rec-circle"></div> REC</div>
+    <div id="call-banner"><div id="call-word"></div></div>
+  </div>
+
+  <!-- Controls -->
+  <div id="controls">
+    <button class="ctrl-btn y" onclick="cycleHandedness()">⚾ L/R Hand</button>
+    <button class="ctrl-btn" onclick="openCalib()">📐 Calibrate</button>
+    <button class="ctrl-btn g" onclick="manualCall('strike')">✓ Strike</button>
+    <button class="ctrl-btn r" onclick="manualCall('ball')">✕ Ball</button>
+    <button class="ctrl-btn b" onclick="addOut()">Out +1</button>
+    <button class="ctrl-btn" onclick="resetCount()">↺ Reset</button>
+    <button class="ctrl-btn" onclick="openSettings()">⚙</button>
+    <button class="ctrl-btn" onclick="openSession()">📋 Log</button>
+  </div>
+</div>
+
+<!-- ═══ REVIEW MODAL ═══ -->
+<div id="review-modal" class="hidden">
+  <div class="review-hdr fade-in">
+    <div class="review-num" id="rv-num">Pitch #1</div>
+    <div class="review-call-text strike" id="rv-call">STRIKE!</div>
+  </div>
+
+  <div class="frames-grid fade-in">
+    <div class="frame-card">
+      <img class="frame-img" id="rv-entry" alt="Entry frame">
+      <div class="frame-lbl">⬇ Enters Zone</div>
+    </div>
+    <div class="frame-card">
+      <img class="frame-img" id="rv-exit" alt="Exit frame">
+      <div class="frame-lbl">⬆ Exits Zone</div>
+    </div>
+  </div>
+
+  <div class="review-meta fade-in" id="rv-meta">—</div>
+
+  <div class="review-btns fade-in">
+    <button class="btn btn-ghost" onclick="confirmReview()">✓ Confirm</button>
+    <button class="btn btn-primary" onclick="overrideCall('strike')" style="background:var(--red)">→ Strike</button>
+    <button class="btn btn-blue" onclick="overrideCall('ball')">→ Ball</button>
+  </div>
+</div>
+
+<!-- ═══ CALIBRATION MODAL ═══ -->
+<div id="calib-modal" class="hidden">
+  <div style="font-family:var(--font-display);font-size:1.5rem;font-weight:600">Manual Calibration</div>
+  <p style="color:var(--muted);font-size:.85rem;max-width:280px">Tap the 4 corners of home plate on the image. The strike zone width will be locked to plate width.</p>
+  <canvas id="calib-canvas" width="320" height="220"></canvas>
+  <div class="calib-step" id="calib-step">Step 1 of 4 — Tap top-left corner of plate</div>
+  <div class="calib-btns">
+    <button class="btn btn-ghost" onclick="cancelCalib()">Cancel</button>
+    <button class="btn btn-primary" id="calib-done" onclick="finishCalib()" style="display:none">Lock Zone ✓</button>
+  </div>
+</div>
+
+<!-- ═══ SETTINGS MODAL ═══ -->
+<div id="settings-modal" class="hidden">
+  <div style="font-family:var(--font-display);font-size:1.5rem;font-weight:600">Settings</div>
+  <div class="settings-card">
+    <div>
+      <div class="settings-label">Ball Detection Sensitivity</div>
+      <div class="settings-sub">Raise if ball isn't detected · Lower for fewer false positives</div>
+      <div style="display:flex;align-items:center;gap:.75rem;margin-top:.5rem">
+        <input type="range" id="sens-slider" min="4" max="24" value="8" oninput="updateSens(this.value)">
+        <div class="val-display" id="sens-val">8</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="settings-label">Zone Padding</div>
+      <div class="settings-sub">Extra pixels added to each edge of the strike zone</div>
+      <div style="display:flex;align-items:center;gap:.75rem;margin-top:.5rem">
+        <input type="range" id="pad-slider" min="0" max="40" value="8" oninput="updatePad(this.value)">
+        <div class="val-display" id="pad-val">8</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="settings-label">Pose Update Rate</div>
+      <div class="settings-sub">How often the strike zone recalculates (every N frames)</div>
+      <div style="display:flex;align-items:center;gap:.75rem;margin-top:.5rem">
+        <input type="range" id="pose-slider" min="4" max="30" value="10" oninput="updatePoseRate(this.value)">
+        <div class="val-display" id="pose-val">10</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="settings-label">Auto-call Pitches</div>
+      <div class="settings-sub">Automatically make calls when ball is tracked</div>
+      <div style="display:flex;align-items:center;gap:.75rem;margin-top:.5rem">
+        <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem;cursor:pointer">
+          <input type="checkbox" id="auto-call" checked style="accent-color:var(--green);width:16px;height:16px">
+          Enabled
+        </label>
+      </div>
+    </div>
+
+    <button class="btn btn-ghost" onclick="closeSettings()" style="width:100%">Done</button>
+  </div>
+</div>
+
+<!-- ═══ SESSION LOG ═══ -->
+<div id="session-panel" class="hidden">
+  <div class="session-hdr">
+    <h2>Pitch Log</h2>
+    <button class="ctrl-btn" onclick="closeSession()">✕</button>
+  </div>
+  <div id="session-list" style="display:flex;flex-direction:column;gap:.5rem;flex:1"></div>
+  <div class="session-foot">
+    <button class="btn btn-ghost" onclick="exportCSV()">⬇ Export CSV</button>
+    <button class="btn btn-danger" onclick="clearLog()">🗑 Clear</button>
+  </div>
+</div>
+
+<!-- TF.js + MoveNet -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.10.0/dist/tf-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.10.0/dist/tf-backend-webgl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+
+<script>
+/* ═══════════════════════════════════════════
+   CONFIG
+═══════════════════════════════════════════ */
+const CFG = {
+  BALL_MIN_PIXELS: 8,       // min yellow pixels to count as ball
+  BALL_PIXEL_STEP: 3,       // pixel sampling step (performance)
+  BALL_GONE_MS: 450,        // ms until ball considered gone (pitch over)
+  POSE_EVERY_N: 10,         // run pose detection every N frames
+  ZONE_PADDING: 8,          // extra px on each zone edge
+  AUTO_CALL: true,
+};
+
+/* ═══════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════ */
+const S = {
+  phase: 'setup',   // setup | loading | live | reviewing | calibrating
+  game: { balls:0, strikes:0, outs:0, pitch:0 },
+  batter: { hand: null },   // 'L' | 'R' | null
+  zone: null,               // {x,y,w,h} in canvas px
+  calibZone: null,          // manually locked zone
+  ball: {
+    hist: [],               // [{x,y,r,t}]
+    inZone: false,
+    entryFrame: null,       // dataURL
+    exitFrame: null,
+    lastSeen: null,
+    pitchStarted: false,
+    everInZone: false,
+  },
+  pitchLog: [],
+  poseFC: 0,                // frame counter for pose
+};
+
+/* ═══════════════════════════════════════════
+   ELEMENT REFS
+═══════════════════════════════════════════ */
+const video   = document.getElementById('video');
+const canvas  = document.getElementById('overlay-canvas');
+const ctx     = canvas.getContext('2d', { willReadFrequently: true });
+
+/* ═══════════════════════════════════════════
+   STARTUP
+═══════════════════════════════════════════ */
+let detector = null;
+
+async function startApp() {
+  showScreen('loading-screen');
+  setLoadMsg('Requesting camera...');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal:'environment' }, width:{ideal:1280}, height:{ideal:720} },
+      audio: false,
+    });
+    video.srcObject = stream;
+    await new Promise(r => { video.onloadedmetadata = r; });
+    video.play();
+
+    setLoadMsg('Loading TensorFlow...');
+    await tf.ready();
+    await tf.setBackend('webgl');
+
+    setLoadMsg('Loading pose model...');
+    detector = await poseDetection.createDetector(
+      poseDetection.SupportedModels.MoveNet,
+      { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+    );
+
+    setLoadMsg('Warming up...');
+    // Warm up pose detector
+    const dummy = tf.zeros([1, 192, 192, 3]);
+    await detector.estimatePoses(dummy);
+    dummy.dispose();
+
+    setLoadMsg('Ready!');
+    await sleep(400);
+
+    showScreen('main-screen');
+    S.phase = 'live';
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    buildDots();
+    updateScoreboard();
+    document.getElementById('rec-dot').classList.add('show');
+    requestAnimationFrame(loop);
+
+  } catch(e) {
+    console.error(e);
+    alert('Could not start: ' + e.message);
+    showScreen('setup-screen');
+  }
+}
+
+function resizeCanvas() {
+  const wrap = document.getElementById('camera-wrap');
+  canvas.width  = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+}
+
+function setLoadMsg(m) { document.getElementById('load-status').textContent = m; }
+
+/* ═══════════════════════════════════════════
+   MAIN LOOP
+═══════════════════════════════════════════ */
+async function loop() {
+  requestAnimationFrame(loop);
+  if (S.phase !== 'live') return;
+  if (!video.readyState || video.readyState < 2) return;
+
+  // Draw video to canvas
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  // Periodic pose detection
+  S.poseFC++;
+  if (S.poseFC % CFG.POSE_EVERY_N === 0) {
+    await runPose();
+  }
+
+  // Ball detection every frame
+  runBall();
+
+  // Draw overlays on top
+  drawOverlay();
+}
+
+/* ═══════════════════════════════════════════
+   POSE DETECTION
+═══════════════════════════════════════════ */
+let currentPose = null;
+
+async function runPose() {
+  if (!detector) return;
+  try {
+    const poses = await detector.estimatePoses(video, { flipHorizontal: false });
+    if (poses && poses.length > 0) {
+      currentPose = poses[0];
+      calcZone(currentPose);
+      inferHand(currentPose);
+      setStatus('🟢 Batter locked');
+    } else {
+      currentPose = null;
+      setStatus('🔴 No batter — step in frame');
+    }
+  } catch(e) { /* silent */ }
+}
+
+function calcZone(pose) {
+  // If manual calibration is locking horizontal bounds, only update vertical
+  const sx = canvas.width  / (video.videoWidth  || 1);
+  const sy = canvas.height / (video.videoHeight || 1);
+
+  const kp = {};
+  pose.keypoints.forEach(k => { kp[k.name] = k; });
+
+  // Need shoulders and knees at decent confidence
+  const needed = ['left_shoulder','right_shoulder','left_knee','right_knee'];
+  if (!needed.every(n => kp[n] && kp[n].score > 0.25)) return;
+
+  const ls = { x: kp.left_shoulder.x  * sx, y: kp.left_shoulder.y  * sy };
+  const rs = { x: kp.right_shoulder.x * sx, y: kp.right_shoulder.y * sy };
+  const lk = { x: kp.left_knee.x  * sx, y: kp.left_knee.y  * sy };
+  const rk = { x: kp.right_knee.x * sx, y: kp.right_knee.y * sy };
+
+  const topY    = (ls.y + rs.y) / 2;
+  const bottomY = (lk.y + rk.y) / 2;
+  const h = bottomY - topY;
+  if (h < 20 || h > canvas.height * 0.95) return;
+
+  const leftX   = Math.min(ls.x, rs.x, lk.x, rk.x);
+  const rightX  = Math.max(ls.x, rs.x, lk.x, rk.x);
+  const pad = CFG.ZONE_PADDING;
+
+  if (S.calibZone) {
+    // Horizontal is locked by calibration; only update vertical
+    S.zone = {
+      x: S.calibZone.x - pad,
+      y: topY - pad,
+      w: S.calibZone.w + pad * 2,
+      h: h + pad * 2,
+    };
+  } else {
+    S.zone = {
+      x: leftX - pad,
+      y: topY - pad,
+      w: (rightX - leftX) + pad * 2,
+      h: h + pad * 2,
+    };
+  }
+
+  document.getElementById('sb-zone') && (document.getElementById('sb-zone').textContent = '●');
+}
+
+function inferHand(pose) {
+  if (S.batter.hand) return; // Don't override manual setting
+  const sx = canvas.width / (video.videoWidth || 1);
+  const kp = {};
+  pose.keypoints.forEach(k => { kp[k.name] = k; });
+
+  const lh = kp['left_hip'], rh = kp['right_hip'];
+  if (!lh || !rh || lh.score < 0.3 || rh.score < 0.3) return;
+
+  const cx = ((lh.x + rh.x) / 2) * sx;
+  const fc = canvas.width / 2;
+  const diff = cx - fc;
+
+  // From catcher view behind batter:
+  // RHB stands LEFT of plate → center left of frame center
+  // LHB stands RIGHT of plate → center right of frame center
+  if (Math.abs(diff) > canvas.width * 0.07) {
+    S.batter.hand = diff < 0 ? 'R' : 'L';
+    updateHandBadge();
+  }
+}
+
+/* ═══════════════════════════════════════════
+   BALL DETECTION
+═══════════════════════════════════════════ */
+function runBall() {
+  const id = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const ball = findBall(id);
+
+  if (ball) {
+    S.ball.hist.push({ ...ball, t: Date.now() });
+    if (S.ball.hist.length > 40) S.ball.hist.shift();
+    S.ball.lastSeen = Date.now();
+    S.ball.pitchStarted = true;
+
+    const inZ = S.zone && pointInZone(ball.x, ball.y);
+
+    if (inZ && !S.ball.inZone) {
+      // Ball entered zone
+      S.ball.inZone = true;
+      S.ball.everInZone = true;
+      S.ball.entryFrame = snapFrame();
+    } else if (!inZ && S.ball.inZone) {
+      // Ball exited zone
+      S.ball.inZone = false;
+      S.ball.exitFrame = snapFrame();
+      if (CFG.AUTO_CALL) finalizePitch();
+    }
+  } else {
+    // Ball not visible
+    if (S.ball.pitchStarted && S.ball.lastSeen && Date.now() - S.ball.lastSeen > CFG.BALL_GONE_MS) {
+      // Pitch is over
+      if (S.ball.inZone) {
+        S.ball.inZone = false;
+        S.ball.exitFrame = snapFrame();
+      }
+      if (CFG.AUTO_CALL && S.ball.hist.length > 2) {
+        finalizePitch();
+      }
+    }
+  }
+}
+
+function findBall(imgData) {
+  const d = imgData.data, w = imgData.width, h = imgData.height;
+  const step = CFG.BALL_PIXEL_STEP;
+  let sx=0, sy=0, cnt=0;
+  let minX=w, maxX=0, minY=h, maxY=0;
+
+  for (let y=0; y<h; y+=step) {
+    for (let x=0; x<w; x+=step) {
+      const i = (y*w+x)*4;
+      if (isYellow(d[i], d[i+1], d[i+2])) {
+        sx+=x; sy+=y; cnt++;
+        if (x<minX) minX=x; if (x>maxX) maxX=x;
+        if (y<minY) minY=y; if (y>maxY) maxY=y;
+      }
+    }
+  }
+
+  if (cnt < CFG.BALL_MIN_PIXELS) return null;
+
+  const bw = maxX - minX, bh = maxY - minY;
+  const aspect = bw / Math.max(bh, 1);
+  if (aspect > 4 || aspect < 0.25) return null;      // Not ball-shaped
+  if (bw > w * 0.35 || bh > h * 0.35) return null;  // Too large (background object)
+
+  return { x: sx/cnt, y: sy/cnt, r: Math.max(bw, bh)/2 + 2 };
+}
+
+function isYellow(r, g, b) {
+  // Tennis ball: bright yellow-green, high R & G, low B
+  const bright = (r+g+b)/3;
+  if (bright < 90)  return false;   // Too dark
+  if (b > 120)       return false;   // Too blue
+  if (r < 130 || g < 150) return false; // Not yellow-green enough
+  if (g < r - 60)    return false;   // G shouldn't lag far below R
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  const sat = max === 0 ? 0 : (max-min)/max;
+  return sat > 0.22;
+}
+
+function pointInZone(x, y) {
+  if (!S.zone) return false;
+  const z = S.zone;
+  return x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h;
+}
+
+function snapFrame() {
+  return canvas.toDataURL('image/jpeg', 0.82);
+}
+
+/* ═══════════════════════════════════════════
+   PITCH FINALIZATION
+═══════════════════════════════════════════ */
+function finalizePitch() {
+  if (S.phase !== 'live') return;
+  if (!S.ball.pitchStarted) return;
+
+  const call = S.ball.everInZone ? 'strike' : 'ball';
+
+  // Reset ball state immediately to avoid double-calls
+  const entry = S.ball.entryFrame;
+  const exit  = S.ball.exitFrame || snapFrame();
+  resetBallState();
+
+  makeCall(call, entry, exit);
+}
+
+function makeCall(call, entry, exit) {
+  S.game.pitch++;
+
+  // Count
+  if (call === 'strike') {
+    S.game.strikes++;
+    if (S.game.strikes >= 3) {
+      setTimeout(() => { announce('Strike three! Batter out!'); bumpOut(); }, 600);
+    } else {
+      announce('Strike ' + S.game.strikes + '!');
+    }
+  } else {
+    S.game.balls++;
+    if (S.game.balls >= 4) {
+      setTimeout(() => { announce('Ball four, take your base!'); resetCount(); }, 600);
+    } else {
+      announce('Ball ' + S.game.balls + '!');
+    }
+  }
+
+  // Flash banner
+  showBanner(call);
+  updateScoreboard();
+
+  // Log
+  const entry2 = {
+    num: S.game.pitch,
+    call,
+    entry,
+    exit,
+    hand: S.batter.hand,
+    time: new Date().toLocaleTimeString(),
+  };
+  S.pitchLog.push(entry2);
+
+  // Show review after short delay
+  setTimeout(() => openReview(entry2), 900);
+}
+
+function resetBallState() {
+  S.ball.hist = [];
+  S.ball.inZone = false;
+  S.ball.entryFrame = null;
+  S.ball.exitFrame = null;
+  S.ball.lastSeen = null;
+  S.ball.pitchStarted = false;
+  S.ball.everInZone = false;
+}
+
+/* ═══════════════════════════════════════════
+   DRAW OVERLAY
+═══════════════════════════════════════════ */
+function drawOverlay() {
+  // Strike zone
+  if (S.zone) {
+    const z = S.zone;
+    const hot = S.ball.inZone;
+    const col = hot ? '#ff4545' : '#00e676';
+
+    ctx.save();
+    ctx.strokeStyle = col;
+    ctx.lineWidth = hot ? 4 : 2.5;
+    ctx.setLineDash([]);
+    ctx.strokeRect(z.x, z.y, z.w, z.h);
+
+    ctx.fillStyle = hot ? 'rgba(255,69,69,.07)' : 'rgba(0,230,118,.05)';
+    ctx.fillRect(z.x, z.y, z.w, z.h);
+
+    // Corner accents
+    const cs = 14;
+    [
+      [z.x, z.y, 1, 1],
+      [z.x+z.w, z.y, -1, 1],
+      [z.x, z.y+z.h, 1, -1],
+      [z.x+z.w, z.y+z.h, -1, -1],
+    ].forEach(([cx,cy,dx,dy]) => {
+      ctx.beginPath();
+      ctx.moveTo(cx+dx*cs, cy);
+      ctx.lineTo(cx, cy);
+      ctx.lineTo(cx, cy+dy*cs);
+      ctx.stroke();
+    });
+
+    // Zone labels
+    ctx.fillStyle = col;
+    ctx.font = '600 10px IBM Plex Mono, monospace';
+    ctx.textAlign = 'left';
+    ctx.globalAlpha = .75;
+    ctx.fillText('SHOULDERS', z.x+3, z.y - 5);
+    ctx.fillText('KNEES', z.x+3, z.y+z.h+12);
+
+    if (S.batter.hand) {
+      ctx.textAlign = 'right';
+      ctx.fillText(S.batter.hand+'HB', z.x+z.w-3, z.y-5);
+    }
+
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Ball & trail
+  const recent = S.ball.hist.slice(-1)[0];
+  if (recent && Date.now() - recent.t < 250) {
+    const trail = S.ball.hist.slice(-12);
+
+    // Trail
+    if (trail.length > 1) {
+      ctx.save();
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      for (let i=1; i<trail.length; i++) {
+        const alpha = (i/trail.length) * 0.5;
+        ctx.strokeStyle = `rgba(255,226,52,${alpha})`;
+        ctx.beginPath();
+        ctx.moveTo(trail[i-1].x, trail[i-1].y);
+        ctx.lineTo(trail[i].x, trail[i].y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Ball circle
+    ctx.save();
+    ctx.strokeStyle = '#ffe234';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(recent.x, recent.y, Math.max(recent.r, 14), 0, Math.PI*2);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255,226,52,.18)';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Skeleton (subtle)
+  if (currentPose) drawSkeleton(currentPose);
+}
+
+function drawSkeleton(pose) {
+  const sx = canvas.width  / (video.videoWidth  || 1);
+  const sy = canvas.height / (video.videoHeight || 1);
+  const kp = {};
+  pose.keypoints.forEach(k => {
+    if (k.score > 0.28) kp[k.name] = { x: k.x*sx, y: k.y*sy };
+  });
+
+  const bones = [
+    ['left_shoulder','right_shoulder'],
+    ['left_shoulder','left_hip'],['right_shoulder','right_hip'],
+    ['left_hip','right_hip'],
+    ['left_hip','left_knee'],['right_hip','right_knee'],
+    ['left_knee','left_ankle'],['right_knee','right_ankle'],
+  ];
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(61,142,248,.35)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5,5]);
+  bones.forEach(([a,b]) => {
+    if (kp[a] && kp[b]) {
+      ctx.beginPath();
+      ctx.moveTo(kp[a].x, kp[a].y);
+      ctx.lineTo(kp[b].x, kp[b].y);
+      ctx.stroke();
+    }
+  });
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(61,142,248,.6)';
+  Object.values(kp).forEach(p => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, Math.PI*2);
+    ctx.fill();
+  });
+  ctx.restore();
+}
+
+/* ═══════════════════════════════════════════
+   SCOREBOARD
+═══════════════════════════════════════════ */
+function buildDots() {
+  const specs = [
+    { id:'ball-dots',   cls:'ball',   count:4 },
+    { id:'strike-dots', cls:'strike', count:3 },
+    { id:'out-dots',    cls:'out',    count:3 },
+  ];
+  specs.forEach(({ id, cls, count }) => {
+    const el = document.getElementById(id);
+    el.innerHTML = '';
+    for (let i=0; i<count; i++) {
+      const d = document.createElement('div');
+      d.className = `dot ${cls}`;
+      d.dataset.i = i;
+      el.appendChild(d);
+    }
+  });
+}
+
+function updateScoreboard() {
+  document.getElementById('sb-pitch').textContent = S.game.pitch;
+
+  document.querySelectorAll('#ball-dots .dot').forEach((d,i)   => d.classList.toggle('on', i < S.game.balls));
+  document.querySelectorAll('#strike-dots .dot').forEach((d,i) => d.classList.toggle('on', i < S.game.strikes));
+  document.querySelectorAll('#out-dots .dot').forEach((d,i)    => d.classList.toggle('on', i < S.game.outs));
+}
+
+function updateHandBadge() {
+  const el = document.getElementById('hand-badge');
+  if (!S.batter.hand) { el.textContent = '?'; el.className = 'hand-badge'; return; }
+  el.textContent = S.batter.hand + 'HB';
+  el.className = 'hand-badge ' + S.batter.hand.toLowerCase() + 'h';
+}
+
+/* ═══════════════════════════════════════════
+   MANUAL CONTROLS
+═══════════════════════════════════════════ */
+function cycleHandedness() {
+  S.batter.hand = S.batter.hand === null ? 'R' : S.batter.hand === 'R' ? 'L' : null;
+  updateHandBadge();
+}
+
+function manualCall(type) {
+  const e = snapFrame();
+  S.ball.entryFrame = e;
+  S.ball.exitFrame  = e;
+  resetBallState();
+  makeCall(type, e, e);
+}
+
+function addOut() {
+  S.game.outs = Math.min(3, S.game.outs + 1);
+  if (S.game.outs >= 3) { announce('Three outs! Inning over.'); resetCount(); S.game.outs = 0; }
+  updateScoreboard();
+}
+
+function resetCount() {
+  S.game.balls = 0;
+  S.game.strikes = 0;
+  updateScoreboard();
+}
+
+function bumpOut() {
+  S.game.outs++;
+  resetCount();
+  if (S.game.outs >= 3) {
+    setTimeout(() => { announce('Three outs! Inning over.'); S.game.outs = 0; updateScoreboard(); }, 1500);
+  }
+  updateScoreboard();
+}
+
+/* ═══════════════════════════════════════════
+   CALL BANNER
+═══════════════════════════════════════════ */
+function showBanner(call) {
+  const banner = document.getElementById('call-banner');
+  const word   = document.getElementById('call-word');
+  word.textContent = call === 'strike' ? 'STRIKE!' : 'BALL!';
+  word.className = call;
+  banner.classList.add('show');
+  setTimeout(() => banner.classList.remove('show'), 1400);
+}
+
+/* ═══════════════════════════════════════════
+   REVIEW MODAL
+═══════════════════════════════════════════ */
+function openReview(entry) {
+  S.phase = 'reviewing';
+  document.getElementById('rv-num').textContent  = `Pitch #${entry.num}`;
+  const callEl = document.getElementById('rv-call');
+  callEl.textContent  = entry.call === 'strike' ? 'STRIKE!' : 'BALL!';
+  callEl.className    = 'review-call-text ' + entry.call;
+
+  document.getElementById('rv-entry').src = entry.entry || '';
+  document.getElementById('rv-exit').src  = entry.exit  || '';
+  document.getElementById('rv-meta').textContent =
+    `${entry.hand ? (entry.hand==='R'?'Right':'Left')+'-handed batter  ·  ':''}Pitch ${entry.num}  ·  ${entry.time}`;
+
+  document.getElementById('review-modal').classList.remove('hidden');
+}
+
+function confirmReview() {
+  document.getElementById('review-modal').classList.add('hidden');
+  S.phase = 'live';
+}
+
+function overrideCall(newCall) {
+  const last = S.pitchLog[S.pitchLog.length - 1];
+  if (!last) { confirmReview(); return; }
+
+  const old = last.call;
+  if (old === newCall) { confirmReview(); return; }
+
+  last.call = newCall;
+  if (old === 'strike') S.game.strikes = Math.max(0, S.game.strikes - 1);
+  else                  S.game.balls   = Math.max(0, S.game.balls - 1);
+  if (newCall === 'strike') S.game.strikes = Math.min(3, S.game.strikes + 1);
+  else                      S.game.balls   = Math.min(4, S.game.balls + 1);
+
+  announce('Override: ' + newCall + '!');
+  updateScoreboard();
+  confirmReview();
+}
+
+/* ═══════════════════════════════════════════
+   CALIBRATION
+═══════════════════════════════════════════ */
+let calibPts = [];
+let calibSnap = null;
+
+const CALIB_LABELS = [
+  'Step 1 of 4 — Tap top-left corner of home plate',
+  'Step 2 of 4 — Tap top-right corner',
+  'Step 3 of 4 — Tap bottom-right corner',
+  'Step 4 of 4 — Tap bottom-left corner',
+];
+
+function openCalib() {
+  calibPts = [];
+  document.getElementById('calib-done').style.display = 'none';
+  document.getElementById('calib-step').textContent = CALIB_LABELS[0];
+
+  const cc = document.getElementById('calib-canvas');
+  const cx = cc.getContext('2d');
+  cx.drawImage(canvas, 0, 0, cc.width, cc.height);
+  calibSnap = cx.getImageData(0, 0, cc.width, cc.height);
+
+  cc.ontouchstart = calibTap;
+  cc.onclick = calibTap;
+
+  document.getElementById('calib-modal').classList.remove('hidden');
+  S.phase = 'calibrating';
+}
+
+function calibTap(e) {
+  e.preventDefault();
+  const cc = document.getElementById('calib-canvas');
+  const r  = cc.getBoundingClientRect();
+  const cx2 = cc.getContext('2d');
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  const x = (clientX - r.left) * (cc.width / r.width);
+  const y = (clientY - r.top)  * (cc.height / r.height);
+
+  calibPts.push({ x, y });
+
+  // Redraw
+  cx2.putImageData(calibSnap, 0, 0);
+  calibPts.forEach((p, i) => {
+    cx2.fillStyle = '#00e676';
+    cx2.beginPath(); cx2.arc(p.x, p.y, 7, 0, Math.PI*2); cx2.fill();
+    cx2.fillStyle = '#000';
+    cx2.font = 'bold 9px sans-serif';
+    cx2.textAlign = 'center';
+    cx2.fillText(i+1, p.x, p.y+3.5);
+  });
+  if (calibPts.length > 1) {
+    cx2.strokeStyle = '#00e676'; cx2.lineWidth = 1.5;
+    cx2.beginPath();
+    calibPts.forEach((p,i) => i===0 ? cx2.moveTo(p.x,p.y) : cx2.lineTo(p.x,p.y));
+    if (calibPts.length === 4) cx2.closePath();
+    cx2.stroke();
+  }
+
+  if (calibPts.length < 4) {
+    document.getElementById('calib-step').textContent = CALIB_LABELS[calibPts.length];
+  } else {
+    document.getElementById('calib-step').textContent = '✓ Plate corners marked — tap Lock Zone';
+    document.getElementById('calib-done').style.display = 'inline-flex';
+  }
+}
+
+function cancelCalib() {
+  document.getElementById('calib-modal').classList.add('hidden');
+  S.phase = 'live';
+}
+
+function finishCalib() {
+  if (calibPts.length < 4) return;
+  const cc = document.getElementById('calib-canvas');
+  const rx = canvas.width  / cc.width;
+  const ry = canvas.height / cc.height;
+
+  const xs = calibPts.map(p => p.x * rx);
+  const ys = calibPts.map(p => p.y * ry);
+  const x = Math.min(...xs), y = Math.min(...ys);
+  const w = Math.max(...xs) - x;
+
+  S.calibZone = { x, w };
+  // Force zone recalc next pose frame
+  if (S.zone) { S.zone.x = x - CFG.ZONE_PADDING; S.zone.w = w + CFG.ZONE_PADDING*2; }
+
+  cancelCalib();
+}
+
+/* ═══════════════════════════════════════════
+   SETTINGS
+═══════════════════════════════════════════ */
+function openSettings()  { document.getElementById('settings-modal').classList.remove('hidden'); S.phase = 'reviewing'; }
+function closeSettings() { document.getElementById('settings-modal').classList.add('hidden');    S.phase = 'live'; }
+
+function updateSens(v) {
+  CFG.BALL_MIN_PIXELS = parseInt(v);
+  document.getElementById('sens-val').textContent = v;
+}
+function updatePad(v) {
+  CFG.ZONE_PADDING = parseInt(v);
+  document.getElementById('pad-val').textContent = v;
+}
+function updatePoseRate(v) {
+  CFG.POSE_EVERY_N = parseInt(v);
+  document.getElementById('pose-val').textContent = v;
+}
+document.getElementById('auto-call').addEventListener('change', e => {
+  CFG.AUTO_CALL = e.target.checked;
+});
+
+/* ═══════════════════════════════════════════
+   SESSION LOG
+═══════════════════════════════════════════ */
+function openSession() {
+  S.phase = 'reviewing';
+  const list = document.getElementById('session-list');
+  list.innerHTML = '';
+
+  if (S.pitchLog.length === 0) {
+    list.innerHTML = '<p style="color:var(--muted);text-align:center;padding:3rem 0;">No pitches logged yet</p>';
+  } else {
+    S.pitchLog.slice().reverse().forEach(p => {
+      const el = document.createElement('div');
+      el.className = 'log-item';
+      el.innerHTML = `
+        <div class="log-badge ${p.call}">${p.call==='strike'?'STR':'BLL'}</div>
+        ${p.entry ? `<img class="log-thumb" src="${p.entry}">` : '<div class="log-thumb"></div>'}
+        <div class="log-info">
+          <div class="log-meta">Pitch #${p.num}  ·  ${p.hand?p.hand+'HB':'?'}  ·  ${p.time}</div>
+          <div class="log-call ${p.call}">${p.call.toUpperCase()}</div>
+        </div>
+        <button class="ctrl-btn" onclick="replayPitch(${p.num-1})" style="flex-shrink:0;font-size:.7rem">👁</button>
+      `;
+      list.appendChild(el);
+    });
+  }
+
+  document.getElementById('session-panel').classList.remove('hidden');
+}
+
+function closeSession() {
+  document.getElementById('session-panel').classList.add('hidden');
+  S.phase = 'live';
+}
+
+function replayPitch(idx) {
+  closeSession();
+  openReview(S.pitchLog[idx]);
+}
+
+function exportCSV() {
+  const rows = ['Pitch#,Call,Handedness,Time'];
+  S.pitchLog.forEach(p => rows.push(`${p.num},${p.call},${p.hand||'unknown'},${p.time}`));
+  const blob = new Blob([rows.join('\n')], { type:'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `striq-pitches-${Date.now()}.csv`;
+  a.click();
+}
+
+function clearLog() {
+  if (!confirm('Clear all pitch data and reset the count?')) return;
+  S.pitchLog = [];
+  S.game = { balls:0, strikes:0, outs:0, pitch:0 };
+  updateScoreboard();
+  closeSession();
+}
+
+/* ═══════════════════════════════════════════
+   AUDIO
+═══════════════════════════════════════════ */
+function announce(text) {
+  if (!window.speechSynthesis) return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 1.05; u.pitch = 0.85; u.volume = 1;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(u);
+}
+
+/* ═══════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════ */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+function setStatus(msg) {
+  document.getElementById('status-badge').textContent = msg;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
