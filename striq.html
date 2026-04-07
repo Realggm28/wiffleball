@@ -284,7 +284,7 @@ input[type=range]{width:120px;accent-color:var(--yellow)}
 
   <!-- Camera & Overlay -->
   <div id="camera-wrap">
-    <video id="video" autoplay playsinline muted></video>
+    <video id="video" autoplay playsinline webkit-playsinline muted></video>
     <canvas id="overlay-canvas"></canvas>
     <div id="status-badge">Waiting for camera...</div>
     <div id="rec-dot"><div class="rec-circle"></div> REC</div>
@@ -405,6 +405,8 @@ input[type=range]{width:120px;accent-color:var(--yellow)}
 <!-- TF.js + MoveNet -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.10.0/dist/tf-core.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.10.0/dist/tf-backend-webgl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.10.0/dist/tf-backend-wasm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.10.0/dist/tf-converter.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 
 <script>
@@ -463,12 +465,30 @@ async function startApp() {
       audio: false,
     });
     video.srcObject = stream;
-    await new Promise(r => { video.onloadedmetadata = r; });
-    video.play();
+    // Robust video-ready for iOS Safari (onloadedmetadata can miss)
+    await new Promise((resolve) => {
+      if (video.readyState >= 1) { resolve(); return; }
+      video.onloadedmetadata = resolve;
+      setTimeout(resolve, 5000); // safety timeout
+    });
+    try { await video.play(); } catch(e) { /* autoplay already running */ }
 
     setLoadMsg('Loading TensorFlow...');
     await tf.ready();
-    await tf.setBackend('webgl');
+
+    // Try WebGL; fall back to WASM for iOS Safari
+    let backend = 'webgl';
+    try {
+      await tf.setBackend('webgl');
+      await tf.ready();
+    } catch(e) {
+      console.warn('WebGL unavailable, switching to WASM:', e);
+      backend = 'wasm';
+      await tf.setBackend('wasm');
+      await tf.ready();
+    }
+    setLoadMsg('Backend: ' + backend.toUpperCase());
+    await sleep(250);
 
     setLoadMsg('Loading pose model...');
     detector = await poseDetection.createDetector(
@@ -477,10 +497,10 @@ async function startApp() {
     );
 
     setLoadMsg('Warming up...');
-    // Warm up pose detector
-    const dummy = tf.zeros([1, 192, 192, 3]);
-    await detector.estimatePoses(dummy);
-    dummy.dispose();
+    // FIX: warm-up with video element, NOT a tensor
+    if (video.readyState >= 2) {
+      try { await detector.estimatePoses(video, { flipHorizontal: false }); } catch(e) { /* ok */ }
+    }
 
     setLoadMsg('Ready!');
     await sleep(400);
@@ -496,7 +516,7 @@ async function startApp() {
 
   } catch(e) {
     console.error(e);
-    alert('Could not start: ' + e.message);
+    alert('StrIQ startup failed\n\n' + (e.message || e) + '\n\nOpen Safari > Settings > Camera and make sure this site has permission.');
     showScreen('setup-screen');
   }
 }
